@@ -1,142 +1,154 @@
-// Smooth scroll animation observer
-const observerOptions = {
-    threshold: 0.1,
-    rootMargin: '0px 0px -50px 0px'
+// ===== CINNAROLLS PREMIUM ENGINE =====
+
+// Initializing Telegram Web App
+const tg = window.Telegram.WebApp;
+tg.expand();
+tg.enableClosingConfirmation();
+
+// Database
+const products = {
+    classic: { name: 'Classic Cinnaroll', price: 35000 },
+    chocolate: { name: 'Choco Roll', price: 40000 },
+    nutcaramel: { name: 'Nut & Caramel', price: 45000 },
+    meringue: { name: 'Meringue Roll', price: 50000 },
+    combo: { name: 'Premium Gift Box', price: 150000 }
 };
 
-const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-        if (entry.isIntersecting) {
-            entry.target.classList.add('visible');
-        }
-    });
-}, observerOptions);
+let cart = {};
 
-// Observe all animated elements
+// ===== Core Functions =====
+
 document.addEventListener('DOMContentLoaded', () => {
-    const animatedElements = document.querySelectorAll('[data-animation]');
-    animatedElements.forEach(el => observer.observe(el));
+    loadCart();
+    updateUI();
 
-    // Add to cart functionality
-    const addToCartButtons = document.querySelectorAll('.add-to-cart');
-    addToCartButtons.forEach(button => {
-        button.addEventListener('click', (e) => {
-            e.preventDefault();
-            const product = button.dataset.product;
-
-            // Add animation feedback
-            button.style.transform = 'rotate(90deg) scale(1.2)';
-            setTimeout(() => {
-                button.style.transform = '';
-            }, 300);
-
-            // Show notification (you can customize this)
-            showNotification(`Товар добавлен в корзину!`);
-        });
-    });
-
-    // Hero CTA button
-    const heroCTA = document.getElementById('hero-cta');
-    if (heroCTA) {
-        heroCTA.addEventListener('click', () => {
-            document.getElementById('order').scrollIntoView({ behavior: 'smooth' });
-        });
-    }
-
-    // Instagram items click effect
-    const instagramItems = document.querySelectorAll('.instagram-item');
-    instagramItems.forEach(item => {
-        item.addEventListener('click', () => {
-            // Open Instagram profile (you can customize the URL)
-            window.open('https://instagram.com/cinnarolls_uz', '_blank');
-        });
-    });
+    // Theme Sync
+    document.body.style.backgroundColor = tg.themeParams.bg_color || '#FDFBF7';
 });
 
-// Notification function
-function showNotification(message) {
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.textContent = message;
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: linear-gradient(135deg, #8B6F47, #5C4033);
-        color: white;
-        padding: 1rem 1.5rem;
-        border-radius: 50px;
-        box-shadow: 0 8px 30px rgba(139, 111, 71, 0.3);
-        z-index: 1000;
-        animation: slideIn 0.3s ease-out;
-        font-weight: 600;
-    `;
+function addToCart(id) {
+    if (!cart[id]) cart[id] = 0;
+    cart[id]++;
 
-    // Add animation
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes slideIn {
-            from {
-                transform: translateX(400px);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-        @keyframes slideOut {
-            from {
-                transform: translateX(0);
-                opacity: 1;
-            }
-            to {
-                transform: translateX(400px);
-                opacity: 0;
-            }
-        }
-    `;
-    document.head.appendChild(style);
+    // Haptic
+    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
 
-    document.body.appendChild(notification);
-
-    // Remove after 3 seconds
-    setTimeout(() => {
-        notification.style.animation = 'slideOut 0.3s ease-out';
-        setTimeout(() => {
-            notification.remove();
-        }, 300);
-    }, 3000);
+    saveCart();
+    updateUI();
+    updateProductCardUI(id);
 }
 
-// Parallax effect for hero section
-window.addEventListener('scroll', () => {
-    const scrolled = window.pageYOffset;
-    const heroImage = document.querySelector('.hero-image');
+function removeFromCart(id) {
+    if (cart[id] > 0) {
+        cart[id]--;
+        if (cart[id] === 0) delete cart[id];
 
-    if (heroImage && scrolled < window.innerHeight) {
-        heroImage.style.transform = `translateY(${scrolled * 0.3}px)`;
+        if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+
+        saveCart();
+        updateUI();
+        updateProductCardUI(id);
     }
-});
+}
 
-// Smooth hover effect for product cards
-const productCards = document.querySelectorAll('.product-card');
-productCards.forEach(card => {
-    card.addEventListener('mousemove', (e) => {
-        const rect = card.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+function getQuantity(id) {
+    return cart[id] || 0;
+}
 
-        const centerX = rect.width / 2;
-        const centerY = rect.height / 2;
+// ===== UI Updates =====
 
-        const rotateX = (y - centerY) / 20;
-        const rotateY = (centerX - x) / 20;
+function updateProductCardUI(id) {
+    const actionContainer = document.getElementById(`action-${id}`);
+    if (!actionContainer) return;
 
-        card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-10px)`;
-    });
+    const qty = getQuantity(id);
 
-    card.addEventListener('mouseleave', () => {
-        card.style.transform = '';
-    });
-});
+    if (qty > 0) {
+        actionContainer.innerHTML = `
+            <div class="qty-control">
+                <button class="qty-btn" onclick="removeFromCart('${id}')">－</button>
+                <span class="qty-val">${qty}</span>
+                <button class="qty-btn" onclick="addToCart('${id}')">＋</button>
+            </div>
+        `;
+    } else {
+        actionContainer.innerHTML = `
+            <button class="add-btn" onclick="addToCart('${id}')">
+                <i class="ri-add-line"></i>
+            </button>
+        `;
+    }
+}
+
+function updateUI() {
+    let total = 0;
+    let count = 0;
+
+    // Calculate totals
+    for (let id in cart) {
+        total += products[id].price * cart[id];
+        count += cart[id];
+
+        // Ensure card UI is synced (in case of page reload)
+        updateProductCardUI(id);
+    }
+
+    // Update Sticky Cart
+    const stickyCart = document.getElementById('cart-sticky');
+    const cartCount = document.getElementById('cart-count');
+    const cartTotal = document.getElementById('cart-total');
+
+    if (count > 0) {
+        stickyCart.classList.add('visible');
+        cartCount.textContent = count;
+        cartTotal.textContent = total.toLocaleString('ru-RU') + " so'm";
+
+        // Update MainButton (Telegram Native)
+        tg.MainButton.setText(`Buyurtma berish: ${total.toLocaleString('ru-RU')} so'm`);
+        tg.MainButton.show();
+        tg.MainButton.onClick(checkout);
+    } else {
+        stickyCart.classList.remove('visible');
+        tg.MainButton.hide();
+    }
+}
+
+function saveCart() {
+    localStorage.setItem('cinnarolls_cart', JSON.stringify(cart));
+}
+
+function loadCart() {
+    const saved = localStorage.getItem('cinnarolls_cart');
+    if (saved) cart = JSON.parse(saved);
+}
+
+// ===== Checkout Flow =====
+
+function checkout() {
+    if (Object.keys(cart).length === 0) return;
+
+    const orderData = {
+        user: tg.initDataUnsafe.user,
+        items: [],
+        total: 0
+    };
+
+    for (let id in cart) {
+        orderData.items.push({
+            id: id,
+            name: products[id].name,
+            price: products[id].price,
+            qty: cart[id],
+            row_total: products[id].price * cart[id]
+        });
+        orderData.total += products[id].price * cart[id];
+    }
+
+    if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+
+    // Send to Bot
+    tg.sendData(JSON.stringify(orderData));
+
+    // Optional: Show alert if not closing
+    // tg.showAlert("Buyurtmangiz qabul qilindi!");
+}
